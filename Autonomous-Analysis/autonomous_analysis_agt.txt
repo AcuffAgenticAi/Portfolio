@@ -1,0 +1,855 @@
+Potential Errors / Bugs
+CSS file loading may crash app
+with open(css_path, "r", encoding="utf-8") as _f:
+
+If style.css is missing the app crashes.
+
+Better
+try:
+    with open(css_path, "r", encoding="utf-8") as _f:
+        _css_raw = _f.read()
+except FileNotFoundError:
+    log.warning("CSS file not found — continuing without styling")
+    _css_raw = ""
+Excel read may fail silently for large files
+df = pd.read_excel(uploaded)
+
+Pandas loads the entire file into memory.
+
+Better:
+
+df = pd.read_excel(uploaded, engine="openpyxl")
+
+Also consider limiting columns or rows earlier.
+
+datetime inference loop is inefficient
+
+Current code:
+
+for col in df.columns:
+    if df[col].dtype == object:
+        try:
+            df[col] = pd.to_datetime(df[col])
+
+This tries converting every object column.
+
+Better:
+
+df = df.apply(
+    lambda col: pd.to_datetime(col, errors="ignore")
+)
+
+Cleaner and faster.
+
+2️⃣ OpenAI API (Modern Standard)
+
+You're using:
+
+response = _OPENAI_CLIENT.chat.completions.create(
+
+This works but the recommended newer pattern is:
+
+response = client.responses.create(
+    model="gpt-4.1",
+    input=[
+        {"role":"system","content":system_prompt},
+        {"role":"user","content":user_prompt}
+    ],
+)
+
+Your method is still supported but Responses API is the future direction.
+
+3️⃣ Timeout Control (Important for production)
+
+You mention the residual risk:
+
+LOW-02 No API call timeout
+
+Fix is easy.
+
+response = _OPENAI_CLIENT.chat.completions.create(
+    model="gpt-4o",
+    messages=[...],
+    timeout=60
+)
+
+or with httpx config.
+
+Without this, requests can hang for 10 minutes.
+
+4️⃣ Data Profiling Efficiency
+
+This section is good but slightly heavy.
+
+Current:
+
+"missing_pct": {sanitize_column_name(k): round(v * 100, 2)
+                for k, v in df.isnull().mean().items()}
+
+Better:
+
+missing_pct = (df.isnull().mean() * 100).round(2)
+
+Then convert to dict.
+
+5️⃣ Numeric Profiling Optimization
+
+Current:
+
+for col in numeric_cols[:10]:
+    s = df[col].dropna()
+
+Dropping NA repeatedly costs time.
+
+Better:
+
+for col in numeric_cols[:10]:
+    s = df[col]
+
+Pandas statistics already ignore NaN.
+
+6️⃣ Pandas Memory Calculation
+
+This is good:
+
+df.memory_usage(deep=True).sum()
+
+But large datasets may take time.
+
+Better:
+
+df.memory_usage(index=True).sum()
+
+Deep scan can be expensive.
+
+7️⃣ Streamlit UX Improvements
+Disable button while processing
+
+Right now the user can spam clicks.
+
+Better:
+
+if st.button("Generate Insights", disabled="report" in st.session_state):
+8️⃣ Logging Improvement
+
+Current logging:
+
+log = logging.getLogger(__name__)
+
+Good.
+
+But add request IDs for traceability.
+
+Example:
+
+request_id = uuid.uuid4().hex
+log.info(f"[{request_id}] Analysis started")
+9️⃣ Data Upload Security
+
+You already enforce size.
+
+Nice.
+
+But MIME validation is missing server side.
+
+You defined:
+
+ALLOWED_MIMES
+
+but never use it.
+
+Add:
+
+if uploaded.type not in ALLOWED_MIMES:
+    st.error("Unsupported file type.")
+    st.stop()
+🔟 Pydantic Model Design
+
+Very clean.
+
+But you can simplify:
+
+issues: list[str] = []
+
+Mutable defaults can cause issues.
+
+Better:
+
+from pydantic import Field
+
+issues: list[str] = Field(default_factory=list)
+
+Same for:
+
+recommendations
+
+insights
+
+key_metrics
+
+risk_flags
+
+
+
+
+
+LLM Cost Optimization
+
+You currently send:
+
+json.dumps(profile, indent=2)
+
+Indenting increases tokens.
+
+Better:
+
+json.dumps(profile)
+12️⃣ Security (Very Good Work)
+
+These protections are excellent:
+
+✔ prompt injection protection
+✔ column name sanitization
+✔ HTML escaping
+✔ dataset truncation
+✔ file size limits
+✔ correlation IDs
+✔ sanitized rendering
+✔ removed sample rows (PII risk)
+
+This is strong defensive engineering.
+
+13️⃣ Code Organization (Biggest Upgrade Opportunity)
+
+Right now everything is in one large file.
+
+For production you should split:
+
+/app
+   main.py
+   ui.py
+   agent.py
+   profiling.py
+   models.py
+   security.py
+   config.py
+
+Example:
+
+agent/
+   run_agent.py
+   prompts.py
+   schemas.py
+
+This improves maintainability massively.
+
+14️⃣ Add Caching (Huge Performance Gain)
+
+Streamlit supports caching.
+
+Wrap profiling:
+
+@st.cache_data
+def profile_dataframe(df):
+
+This prevents reprocessing the dataset repeatedly.
+
+15️⃣ Add Dataset Hashing
+
+This prevents repeated LLM calls.
+
+Example:
+
+dataset_hash = pd.util.hash_pandas_object(df).sum()
+
+Store report by hash.
+
+16️⃣ Production Deployment Recommendation
+
+If this becomes a real AI product, deploy with:
+
+FastAPI backend
++
+Streamlit frontend
++
+Redis caching
++
+Docker
+
+Your current architecture is good for MVP.
+
+Final Code Score
+Category	Rating
+Security	9/10
+Code clarity	8/10
+Performance	7/10
+Architecture	7/10
+Production readiness	7/10
+
+Overall: 8/10
+
+That’s very strong for an AI analytics agent prototype.
+
+If You Want (Highly Recommended)
+
+I can also show you how to upgrade this into a serious AI engineering portfolio project by adding:
+
+Autonomous KPI Monitoring Agent Architecture
+
+Add:
+
+anomaly detection
+
+scheduled monitoring
+
+Slack alerts
+
+automated executive reports
+
+This turns your project into something companies like:
+
+IBM
+
+Palantir Technologies
+
+Microsoft
+
+actually hire for.
+
+If you want, I can also generate the improved v3 architecture and repo layout.
+
+Autonomous KPI Monitoring Agent Architecture
+
+Add:
+
+anomaly detection
+
+scheduled monitoring
+
+Slack alerts
+
+automated executive reports
+
+This turns your project into something companies like:
+
+IBM
+
+Palantir Technologies
+
+Microsoft
+
+actually hire for.
+
+If you want, I can also generate the improved v3 architecture and repo layout.
+
+You’re on a really good track with this idea. Turning your current data insight agent into a continuous KPI monitoring system is exactly the kind of thing enterprise analytics teams build. Let’s lay out a clean v3 architecture that would look credible to engineers at places like IBM, Microsoft, or Palantir Technologies. 🚀
+
+Autonomous KPI Monitoring Agent — v3 Architecture
+Goal
+
+A system that continuously monitors operational data, detects anomalies, and generates AI-assisted executive insights.
+
+Think of it as:
+
+Data Pipeline → KPI Monitor → Anomaly Detector → AI Analyst → Alerts + Reports
+
+System Architecture
+                ┌────────────────────┐
+                │  Data Sources       │
+                │  (CSV / DB / API)   │
+                └─────────┬───────────┘
+                          │
+                          ▼
+                ┌────────────────────┐
+                │ Data Ingestion     │
+                │ ETL / Validation   │
+                └─────────┬───────────┘
+                          │
+                          ▼
+                ┌────────────────────┐
+                │ KPI Engine         │
+                │ metric computation │
+                └─────────┬───────────┘
+                          │
+                          ▼
+                ┌────────────────────┐
+                │ Anomaly Detection  │
+                │ stats + ML models  │
+                └─────────┬───────────┘
+                          │
+                          ▼
+                ┌────────────────────┐
+                │ AI Insight Agent   │
+                │ LLM explanations   │
+                └─────────┬───────────┘
+                          │
+        ┌─────────────────┴──────────────┐
+        ▼                                ▼
+┌───────────────┐               ┌─────────────────┐
+│ Slack Alerts  │               │ Executive Report │
+│ real-time     │               │ daily summary    │
+└───────────────┘               └─────────────────┘
+Recommended Tech Stack
+Layer	Tech
+Backend API	FastAPI
+Data processing	Pandas / Polars
+ML anomaly detection	Scikit-learn
+Scheduling	APScheduler / Prefect
+Messaging	Slack Webhook
+AI analysis	LLM API
+Storage	PostgreSQL
+Frontend	Streamlit dashboard
+v3 Repository Structure
+
+This structure will make the project look professional on GitHub.
+
+kpi-monitor-agent/
+│
+├── app/
+│
+│   ├── main.py
+│   ├── config.py
+│
+│   ├── ingestion/
+│   │      data_loader.py
+│   │      validators.py
+│
+│   ├── analytics/
+│   │      kpi_engine.py
+│   │      anomaly_detection.py
+│
+│   ├── ai/
+│   │      insight_agent.py
+│   │      prompts.py
+│
+│   ├── alerts/
+│   │      slack_alerts.py
+│   │      email_alerts.py
+│
+│   ├── reporting/
+│   │      executive_report.py
+│   │
+│   └── utils/
+│          logging.py
+│          security.py
+│
+├── dashboard/
+│     streamlit_app.py
+│
+├── jobs/
+│     scheduler.py
+│
+├── tests/
+│
+├── Dockerfile
+├── requirements.txt
+└── README.md
+
+This repo layout screams “real AI engineer” to recruiters.
+
+Core Modules
+KPI Engine
+
+Responsible for computing metrics.
+
+Example:
+
+daily_revenue
+conversion_rate
+defect_rate
+patient_wait_time
+
+Example code idea:
+
+def compute_kpis(df):
+    return {
+        "revenue_total": df["revenue"].sum(),
+        "avg_order_value": df["revenue"].mean(),
+        "conversion_rate": df["orders"].sum() / df["visits"].sum()
+    }
+Anomaly Detection
+
+You want both simple stats and ML detection.
+
+Method 1 (fast baseline)
+
+Z-score
+
+z = (value - mean) / std
+
+Alert if:
+
+abs(z) > 3
+Method 2 (enterprise grade)
+
+Isolation Forest
+
+from sklearn.ensemble import IsolationForest
+
+model = IsolationForest(contamination=0.02)
+model.fit(data)
+anomaly = model.predict(data)
+AI Insight Agent
+
+The LLM explains anomalies in human language.
+
+Example output:
+
+KPI Alert: Patient wait times increased 27%
+
+Likely cause:
+• staffing levels dropped
+• admissions volume spike
+
+Recommendation:
+Add triage staff between 10AM–2PM
+Slack Alerts
+
+Send alerts immediately when anomalies happen.
+
+Example message:
+
+🚨 KPI ALERT
+
+Metric: Conversion Rate
+Current: 1.8%
+Baseline: 3.2%
+
+AI Insight:
+Traffic increased but checkout errors spiked.
+
+Recommended Action:
+Investigate payment gateway logs.
+
+Example code:
+
+import requests
+
+def send_slack_alert(message):
+
+    webhook = os.getenv("SLACK_WEBHOOK")
+
+    payload = {"text": message}
+
+    requests.post(webhook, json=payload)
+Scheduled Monitoring
+
+Run monitoring automatically.
+
+Options:
+
+Lightweight
+
+APScheduler
+
+scheduler.add_job(run_monitoring, "interval", minutes=30)
+Production
+
+Prefect / Airflow.
+
+These manage data workflows reliably.
+
+Automated Executive Reports
+
+Generate daily summaries.
+
+Example:
+
+Daily Operations Intelligence Report
+
+Key Metrics
+Revenue: $1.2M (+5%)
+
+Risks
+Checkout error spike detected
+
+Recommendations
+Investigate payment service latency
+
+Export options:
+
+PDF
+
+Slack summary
+
+email report
+
+Optional (Advanced Enterprise Feature)
+
+Add historical KPI tracking.
+
+Store in database:
+
+date
+metric_name
+value
+baseline
+anomaly_flag
+
+Then build dashboard charts.
+
+
+Concept
+
+Instead of one large AI process, you create specialized agents that each do one job well.
+
+Think:
+
+Data → Analysis Agent → Anomaly Agent → Insight Agent → Report Agent
+
+Each agent has:
+
+• a role
+• a defined input
+• a defined output
+
+This mirrors real enterprise AI orchestration used by companies like IBM, Palantir Technologies, and Microsoft.
+
+Multi-Agent System Architecture
+                ┌────────────────────────┐
+                │      Data Sources       │
+                │  DB / CSV / APIs        │
+                └────────────┬───────────┘
+                             │
+                             ▼
+                  ┌─────────────────────┐
+                  │ Data Analysis Agent │
+                  │ KPI computation     │
+                  └─────────┬───────────┘
+                            │
+                            ▼
+                ┌────────────────────────┐
+                │ Anomaly Detection Agent│
+                │ ML + statistical scan  │
+                └─────────┬──────────────┘
+                          │
+                          ▼
+                ┌────────────────────────┐
+                │ Investigation Agent    │
+                │ Root cause analysis    │
+                └─────────┬──────────────┘
+                          │
+                          ▼
+                ┌────────────────────────┐
+                │ Executive Insight Agent│
+                │ AI explanation         │
+                └─────────┬──────────────┘
+                          │
+          ┌───────────────┴────────────────┐
+          ▼                                 ▼
+   ┌───────────────┐              ┌────────────────┐
+   │ Slack Alert   │              │ Report Builder │
+   │ Agent         │              │ Agent          │
+   └───────────────┘              └────────────────┘
+Agent Roles
+1️⃣ Data Analysis Agent
+
+Purpose: Calculate KPIs from raw data.
+
+Example outputs:
+
+conversion_rate
+revenue_growth
+customer_churn
+wait_time
+defect_rate
+
+Example code concept:
+
+class DataAnalysisAgent:
+
+    def run(self, dataframe):
+
+        kpis = {
+            "total_revenue": dataframe["revenue"].sum(),
+            "avg_order_value": dataframe["revenue"].mean(),
+            "conversion_rate": dataframe["orders"].sum() / dataframe["visits"].sum()
+        }
+
+        return kpis
+2️⃣ Anomaly Detection Agent
+
+This agent monitors KPI behavior.
+
+Methods:
+
+• Z-score detection
+• Isolation Forest
+• seasonal trend detection
+
+Example:
+
+class AnomalyAgent:
+
+    def detect(self, metric_history):
+
+        mean = metric_history.mean()
+        std = metric_history.std()
+
+        latest = metric_history.iloc[-1]
+
+        z_score = (latest - mean) / std
+
+        if abs(z_score) > 3:
+            return True
+
+        return False
+3️⃣ Investigation Agent
+
+When anomalies appear, this agent looks deeper into the dataset.
+
+Example tasks:
+
+Which segment changed?
+Which product?
+Which region?
+Which time period?
+
+Example output:
+
+Root cause candidate:
+
+Revenue dropped in region: Midwest
+Product category: Electronics
+Traffic unchanged
+Conversion decreased
+
+Concept code:
+
+class InvestigationAgent:
+
+    def investigate(self, df):
+
+        breakdown = df.groupby("region")["revenue"].sum()
+
+        return breakdown.sort_values()
+4️⃣ Executive Insight Agent (LLM)
+
+This agent converts data findings into plain language insights.
+
+Example prompt structure:
+
+You are a business intelligence analyst.
+
+Explain this KPI anomaly to executives.
+
+Provide:
+1. explanation
+2. possible causes
+3. recommended actions
+
+Example output:
+
+Revenue decreased 14% compared to the 30-day baseline.
+
+Most of the decline comes from Midwest electronics sales.
+
+Recommendation:
+Investigate supply chain delays or competitor promotions.
+5️⃣ Alert Agent
+
+Real-time notification.
+
+Destinations:
+
+• Slack
+• email
+• Microsoft Teams
+
+Example Slack message:
+
+🚨 KPI Alert
+
+Metric: Customer Conversion Rate
+Current: 2.1%
+Baseline: 3.4%
+
+AI Insight:
+Checkout errors increased after last deployment.
+6️⃣ Executive Report Agent
+
+Creates daily / weekly reports.
+
+Example sections:
+
+Daily Operations Intelligence Report
+
+Top KPIs
+Revenue +3%
+
+Risks
+Conversion drop detected
+
+Recommendations
+Review payment gateway logs
+
+Outputs:
+
+• PDF
+• Slack summary
+• dashboard update
+
+Agent Orchestrator
+
+All agents run through a central orchestrator.
+
+Example flow:
+
+class KPIAgentOrchestrator:
+
+    def run_pipeline(self, df):
+
+        kpis = DataAnalysisAgent().run(df)
+
+        anomaly = AnomalyAgent().detect(kpis)
+
+        if anomaly:
+
+            root_cause = InvestigationAgent().investigate(df)
+
+            insight = ExecutiveInsightAgent().explain(
+                kpis, root_cause
+            )
+
+            AlertAgent().send(insight)
+
+            ReportAgent().build(insight)
+Example Project Folder
+multi-agent-kpi-platform
+
+agents/
+   data_agent.py
+   anomaly_agent.py
+   investigation_agent.py
+   insight_agent.py
+   alert_agent.py
+   report_agent.py
+
+orchestrator/
+   pipeline.py
+
+analytics/
+   kpi_engine.py
+   anomaly_models.py
+
+dashboard/
+   streamlit_dashboard.py
+
+jobs/
+   scheduler.py
+Advanced Feature (Big Resume Boost)
+
+Add memory between runs.
+
+Agents remember previous insights.
+
+Example:
+
+Previous anomaly: conversion drop
+Current anomaly: same metric
+
+AI insight:
+Issue likely unresolved from last cycle.
+
+This mimics agent persistence systems used in enterprise AI.
+
