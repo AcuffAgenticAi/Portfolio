@@ -1,67 +1,66 @@
 """
 ╔══════════════════════════════════════════════════════════════════════════════════╗
-║         ENTERPRISE DATA INSIGHT AGENT — HARDENED BUILD v2.2                   ║
-║                                                                                ║
-║  SECURITY PASS HISTORY                                                         ║
-║  v1.0  Initial build                                                           ║
-║  v2.0  CRIT + HIGH + MED resolved                                              ║
-║  v2.1  Performance, UX, LLM cost, Pydantic hygiene improvements               ║
-║  v2.2  Red Team pass — RT-01 through RT-09 mitigated (see log below)          ║
-║                                                                                ║
-║  ════════════════════════════════════════════════════════════════════════════  ║
-║  RED TEAM FINDINGS — v2.2 MITIGATIONS                                          ║
-║  ════════════════════════════════════════════════════════════════════════════  ║
-║                                                                                ║
-║  RT-01  json.loads without JSONDecodeError guard                               ║
-║         FIX: Wrapped in try/except json.JSONDecodeError with corr-ID logging  ║
-║                                                                                ║
-║  RT-02  AgentReport(**raw_json) — no incoming key count guard                 ║
-║         FIX: Validate key count (≤ 20) and total payload size (≤ 64 KB)       ║
-║              before Pydantic parse to prevent dict-bomb amplification          ║
-║                                                                                ║
-║  RT-03  response.output iteration — no None/empty guard                       ║
-║         FIX: Guard on response is not None and output is non-empty list        ║
-║                                                                                ║
-║  RT-04  float(s.mean()) on all-NaN column → Python float('nan')               ║
-║         Python's json.dumps outputs "NaN" (invalid JSON spec);                ║
-║         OpenAI API rejects the malformed payload silently                      ║
-║         FIX: _safe_float() coerces nan/inf → None before serialization        ║
-║                                                                                ║
-║  RT-05  pd.util.hash_pandas_object — private API, raises on mixed dtypes      ║
-║         FIX: Replaced with hashlib.sha256 over df.to_parquet() bytes          ║
-║              (stable, public, dtype-agnostic)                                 ║
-║                                                                                ║
-║  RT-06  except Exception in sanitize_text — too broad; masks MemoryError etc  ║
-║         FIX: Narrowed to except (TypeError, ValueError, AttributeError)        ║
-║              Non-recoverable exceptions now propagate correctly                ║
-║                                                                                ║
-║  RT-07  CSS validator missed expression(), @import, javascript: vectors       ║
-║         FIX: Extended regex to cover all known CSS injection patterns          ║
-║                                                                                ║
-║  RT-08  uploaded = None after size fail, but downstream code calls .name      ║
-║         FIX: Replace None assignment with st.stop() — no further execution    ║
-║                                                                                ║
-║  RT-09  No per-session rate limit on LLM calls — cost amplification risk      ║
-║         FIX: MAX_REPORTS_PER_SESSION constant enforced via session_state       ║
-║              counter; user shown clear message on limit reached                ║
-║                                                                                ║
-║  ════════════════════════════════════════════════════════════════════════════  ║
-║  RESIDUAL RISK ACCEPTANCE LOG (unchanged from v2.1)                            ║
-║  ════════════════════════════════════════════════════════════════════════════  ║
-║                                                                                ║
-║  LOW-01  No SSO/AuthN layer                                                    ║
-║          Accepted: Requires org-level IdP integration (Okta/AzureAD).         ║
-║          Mitigated by: network-level access control (VPN / IP allowlist).      ║
-║          Owner: Platform/DevOps team. Timeline: next quarter.                  ║
-║                                                                                ║
-║  LOW-05  f-string HTML interpolation pattern remains for static strings        ║
-║          Accepted: All dynamic values sanitized before interpolation.          ║
-║          Pattern is safe as long as sanitize() wraps every dynamic input.     ║
-║          Owner: All developers — enforced via code review checklist.           ║
-║                                                                                ║
-║  INFO-01 Downloaded .txt report may be ingested by downstream AI systems       ║
-║          Accepted: AI-generated content header added. Risk is low for          ║
-║          plain-text output. Escalate if PDF/HTML export is added later.        ║
+║         ENTERPRISE DATA INSIGHT AGENT — HARDENED BUILD v2.2                      ║
+║                                                                                  ║
+║  SECURITY PASS HISTORY                                                           ║
+║  v1.0  Initial build                                                             ║
+║  v2.0  CRIT + HIGH + MED resolved                                                ║
+║  v2.1  Performance, UX, LLM cost, Pydantic hygiene improvements                  ║
+║  v2.2  Red Team pass — RT-01 through RT-09 mitigated (see log below)             ║
+║                                                                                  ║
+║  ════════════════════════════════════════════════════════════════════════════    ║
+║  RED TEAM FINDINGS — v2.2 MITIGATIONS                                            ║
+║  ════════════════════════════════════════════════════════════════════════════    ║
+║                                                                                  ║
+║  RT-01  json.loads without JSONDecodeError guard                                 ║
+║         FIX: Wrapped in try/except json.JSONDecodeError with corr-ID logging     ║
+║                                                                                  ║
+║  RT-02  AgentReport(**raw_json) — no incoming key count guard                    ║
+║         FIX: Validate key count (≤ 20) and total payload size (≤ 64 KB)          ║
+║              before Pydantic parse to prevent dict-bomb amplification            ║                                                                                ║
+║  RT-03  response.output iteration — no None/empty guard                          ║
+║         FIX: Guard on response is not None and output is non-empty list          ║
+║                                                                                  ║
+║  RT-04  float(s.mean()) on all-NaN column → Python float('nan')                  ║
+║         Python's json.dumps outputs "NaN" (invalid JSON spec);                   ║
+║         OpenAI API rejects the malformed payload silently                        ║
+║         FIX: _safe_float() coerces nan/inf → None before serialization           ║
+║                                                                                  ║
+║  RT-05  pd.util.hash_pandas_object — private API, raises on mixed dtypes         ║
+║         FIX: Replaced with hashlib.sha256 over df.to_parquet() bytes             ║
+║              (stable, public, dtype-agnostic)                                    ║
+║                                                                                  ║
+║  RT-06  except Exception in sanitize_text — too broad; masks MemoryError etc     ║
+║         FIX: Narrowed to except (TypeError, ValueError, AttributeError)          ║
+║              Non-recoverable exceptions now propagate correctly                  ║
+║                                                                                  ║
+║  RT-07  CSS validator missed expression(), @import, javascript: vectors          ║
+║         FIX: Extended regex to cover all known CSS injection patterns            ║
+║                                                                                  ║
+║  RT-08  uploaded = None after size fail, but downstream code calls .name         ║
+║         FIX: Replace None assignment with st.stop() — no further execution       ║
+║                                                                                  ║
+║  RT-09  No per-session rate limit on LLM calls — cost amplification risk         ║
+║         FIX: MAX_REPORTS_PER_SESSION constant enforced via session_state         ║
+║              counter; user shown clear message on limit reached                  ║
+║                                                                                  ║
+║  ════════════════════════════════════════════════════════════════════════════    ║
+║  RESIDUAL RISK ACCEPTANCE LOG (unchanged from v2.1)                              ║
+║  ════════════════════════════════════════════════════════════════════════════    ║
+║                                                                                  ║
+║  LOW-01  No SSO/AuthN layer                                                      ║
+║          Accepted: Requires org-level IdP integration (Okta/AzureAD).            ║
+║          Mitigated by: network-level access control (VPN / IP allowlist).        ║
+║          Owner: Platform/DevOps team. Timeline: next quarter.                    ║
+║                                                                                  ║
+║  LOW-05  f-string HTML interpolation pattern remains for static strings          ║
+║          Accepted: All dynamic values sanitized before interpolation.            ║
+║          Pattern is safe as long as sanitize() wraps every dynamic input.        ║
+║          Owner: All developers — enforced via code review checklist.             ║
+║                                                                                  ║
+║  INFO-01 Downloaded .txt report may be ingested by downstream AI systems         ║
+║          Accepted: AI-generated content header added. Risk is low for            ║
+║          plain-text output. Escalate if PDF/HTML export is added later.          ║
 ╚══════════════════════════════════════════════════════════════════════════════════╝
 """
 
