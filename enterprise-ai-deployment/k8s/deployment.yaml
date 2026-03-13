@@ -1,0 +1,284 @@
+# ================================================================================
+# k8s/deployment.yaml  —  Kubernetes Deployment & Service manifests
+# ================================================================================
+#
+# Purpose:
+#   Deploys the Enterprise AI Platform as two Kubernetes workloads:
+#     1. inference-api     — FastAPI model serving pod (horizontally scalable)
+#     2. monitoring-agent  — Continuous monitoring loop pod (single replica)
+#
+# Usage:
+#   kubectl apply -f k8s/deployment.yaml
+#   kubectl apply -f k8s/service.yaml       (included below as a second document)
+#
+# Prerequisites:
+#   - Docker image built and pushed to your registry:
+#       docker build -t your-registry/ai-platform:latest .
+#       docker push  your-registry/ai-platform:latest
+#   - Kubernetes secret created for registry pull:
+#       kubectl create secret docker-registry regcred \
+#         --docker-server=your-registry \
+#         --docker-username=USER \
+#         --docker-password=PASS
+#   - ConfigMap / Secret created (see k8s/configmap.yaml)
+#
+# Health probes:
+#   Both workloads expose /healthz (liveness) and /readyz (readiness) endpoints
+#   that Kubernetes polls to determine when pods are ready for traffic and when
+#   to restart an unhealthy pod.
+# ================================================================================
+
+---
+# ── Namespace ─────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ai-platform
+  labels:
+    app.kubernetes.io/managed-by: kubectl
+    environment: production
+
+---
+# ── ConfigMap: non-secret platform configuration ──────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: platform-config
+  namespace: ai-platform
+data:
+  ENV:                  "production"
+  LOG_LEVEL:            "INFO"
+  MONITOR_INTERVAL:     "60"
+  DRIFT_P_THRESHOLD:    "0.05"
+  ACCURACY_THRESHOLD:   "0.85"
+  ACTIVE_TENANTS:       "bank_a,bank_b,bank_c"
+  API_HOST:             "0.0.0.0"
+  API_PORT:             "8000"
+
+---
+# ── Deployment: FastAPI inference server ──────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inference-api
+  namespace: ai-platform
+  labels:
+    app:       inference-api
+    component: serving
+    version:   "1.0.0"
+spec:
+  # Horizontal scaling: run 3 replicas for high availability.
+  # Use a HorizontalPodAutoscaler (HPA) in production to scale on CPU / RPS.
+  replicas: 3
+
+  selector:
+    matchLabels:
+      app: inference-api
+
+  strategy:
+    # RollingUpdate ensures zero-downtime deployments.
+    # At most 1 pod down, at most 1 extra pod up at any time.
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge:       1
+
+  template:
+    metadata:
+      labels:
+        app:       inference-api
+        component: serving
+      annotations:
+        # Prometheus scrape annotations — enable metric collection via /metrics
+        prometheus.io/scrape: "true"
+        prometheus.io/port:   "8000"
+        prometheus.io/path:   "/metrics"
+    spec:
+      # Pull the Docker image (update registry path before applying).
+      containers:
+        - name:  inference-api
+          image: your-registry/ai-platform:latest
+          imagePullPolicy: Always
+
+          # Run the FastAPI server only (not the monitoring loop).
+          command: ["python", "main.py", "--monitor-only=false"]
+          # Actually for pure API mode, override entrypoint:
+          args: []
+
+          ports:
+            - containerPort: 8000
+              name:          http
+              protocol:      TCP
+
+          # ── Environment from ConfigMap ──────────────────────────────────────
+          envFrom:
+            - configMapRef:
+                name: platform-config
+
+          # ── Resource requests and limits ────────────────────────────────────
+          # Requests: guaranteed CPU/memory allocation.
+          # Limits:   hard cap — container is OOMKilled if exceeded.
+          resources:
+            requests:
+              cpu:    "250m"      # 0.25 vCPU
+              memory: "512Mi"
+            limits:
+              cpu:    "1000m"     # 1 vCPU
+              memory: "1Gi"
+
+          # ── Kubernetes health probes ────────────────────────────────────────
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds:       10
+            failureThreshold:    3
+
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds:       5
+            failureThreshold:    3
+
+          # ── Model artefact volume mount ─────────────────────────────────────
+          volumeMounts:
+            - name:      model-storage
+              mountPath: /app/models
+              readOnly:  true
+
+      volumes:
+        - name: model-storage
+          # In production: use a PersistentVolumeClaim backed by EFS / GCS / Azure Blob
+          # so the trained model is shared across all replicas without rebuilding the image.
+          emptyDir: {}
+
+      imagePullSecrets:
+        - name: regcred
+
+---
+# ── Deployment: Monitoring agent ──────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: monitoring-agent
+  namespace: ai-platform
+  labels:
+    app:       monitoring-agent
+    component: monitoring
+spec:
+  # Single replica — the monitoring loop is stateful (cool-down timer).
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: monitoring-agent
+
+  template:
+    metadata:
+      labels:
+        app:       monitoring-agent
+        component: monitoring
+    spec:
+      containers:
+        - name:  monitoring-agent
+          image: your-registry/ai-platform:latest
+          imagePullPolicy: Always
+          command: ["python", "main.py", "--monitor-only"]
+
+          envFrom:
+            - configMapRef:
+                name: platform-config
+
+          resources:
+            requests:
+              cpu:    "100m"
+              memory: "256Mi"
+            limits:
+              cpu:    "500m"
+              memory: "512Mi"
+
+          volumeMounts:
+            - name:      monitoring-storage
+              mountPath: /app/monitoring
+
+      volumes:
+        - name: monitoring-storage
+          emptyDir: {}
+
+      imagePullSecrets:
+        - name: regcred
+
+---
+# ── Service: Expose inference-api internally (ClusterIP) ─────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: inference-api-svc
+  namespace: ai-platform
+  labels:
+    app: inference-api
+spec:
+  type: ClusterIP
+  selector:
+    app: inference-api
+  ports:
+    - port:       80
+      targetPort: 8000
+      protocol:   TCP
+      name:       http
+
+---
+# ── Ingress: Expose inference-api externally via HTTPS ───────────────────────
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: inference-api-ingress
+  namespace: ai-platform
+  annotations:
+    # nginx ingress controller annotations
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect:   "true"
+    # cert-manager will automatically provision a TLS certificate.
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - api.your-platform.com
+      secretName: inference-api-tls
+  rules:
+    - host: api.your-platform.com
+      http:
+        paths:
+          - path:     /
+            pathType: Prefix
+            backend:
+              service:
+                name: inference-api-svc
+                port:
+                  number: 80
+
+---
+# ── HorizontalPodAutoscaler: scale inference-api on CPU ──────────────────────
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: inference-api-hpa
+  namespace: ai-platform
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind:       Deployment
+    name:       inference-api
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type:               Utilization
+          averageUtilization: 70   # scale up when avg CPU > 70 %
