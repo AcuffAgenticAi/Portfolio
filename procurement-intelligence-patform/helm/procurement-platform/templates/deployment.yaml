@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: pricing-anomaly-service
+
+spec:
+  replicas: 3
+
+  selector:
+    matchLabels:
+      app: pricing-anomaly
+
+  template:
+    metadata:
+      labels:
+        app: pricing-anomaly
+
+    spec:
+      containers:
+      - name: pricing-anomaly
+        image: procurement/pricing-anomaly:latest
+        ports:
+          - containerPort: 8000

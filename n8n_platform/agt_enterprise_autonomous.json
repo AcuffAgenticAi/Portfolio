@@ -1,0 +1,267 @@
+{
+  "name": "agt_enterprise_autonomous",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 2
+            }
+          ]
+        }
+      },
+      "id": "f622e4c8-60f8-4140-8622-60efd3480bc1",
+      "name": "Daily Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        368,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "<__PLACEHOLDER_VALUE__ai_service_endpoint__>",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "vendor_data"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1d76b089-23e8-4acc-a18f-64c49d4835c6",
+      "name": "Analyze Vendor Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        592,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "<__PLACEHOLDER_VALUE__slack_channel__>"
+        },
+        "text": "=🚨 *Vendor Price Anomaly Detected*\n\n*Vendor:* {{ $json.vendor_name }} ({{ $json.vendor_id }})\n*Product:* {{ $json.product }}\n*Price Change:* ${{ $json.previous_price }} → ${{ $json.current_price }} (+{{ $json.price_change_percent }}%)\n*Risk Level:* {{ $json.risk_level }}\n*Confidence:* {{ $json.confidence_score }}\n\n*Analysis:* {{ $json.anomaly_type }}\n*Recommendation:* {{ $json.recommendation }}\n\n*Action Required:* {{ $json.suggested_action }}",
+        "otherOptions": {}
+      },
+      "id": "b9ddcc84-81a4-4221-b4b0-814f25170f6a",
+      "name": "Slack Alert",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [
+        816,
+        192
+      ],
+      "webhookId": "1ecd393f-a450-4598-aa6b-ffdcfd5f1bb7"
+    },
+    {
+      "parameters": {},
+      "id": "8c828a44-1fa1-4901-91aa-bf0f21294e3e",
+      "name": "Manual Test Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        144,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "vendor_id",
+              "value": "VND-12345",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "vendor_name",
+              "value": "Acme Supplies Inc",
+              "type": "string"
+            },
+            {
+              "id": "id-3",
+              "name": "product",
+              "value": "Industrial Widgets",
+              "type": "string"
+            },
+            {
+              "id": "id-4",
+              "name": "current_price",
+              "value": 125.5,
+              "type": "number"
+            },
+            {
+              "id": "id-5",
+              "name": "previous_price",
+              "value": 98.75,
+              "type": "number"
+            },
+            {
+              "id": "id-6",
+              "name": "price_change_percent",
+              "value": 27.1,
+              "type": "number"
+            },
+            {
+              "id": "id-7",
+              "name": "order_volume",
+              "value": 500,
+              "type": "number"
+            },
+            {
+              "id": "id-8",
+              "name": "last_order_date",
+              "value": "2024-01-15",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e1c1807c-adb5-4852-9caa-3042cd550082",
+      "name": "Mock Vendor Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        368,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "analysis_result",
+              "value": "ANOMALY_DETECTED",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "confidence_score",
+              "value": 0.89,
+              "type": "number"
+            },
+            {
+              "id": "id-3",
+              "name": "anomaly_type",
+              "value": "Significant Price Increase",
+              "type": "string"
+            },
+            {
+              "id": "id-4",
+              "name": "recommendation",
+              "value": "Review vendor contract and negotiate pricing. Price increase of 27.1% exceeds normal market fluctuation.",
+              "type": "string"
+            },
+            {
+              "id": "id-5",
+              "name": "risk_level",
+              "value": "HIGH",
+              "type": "string"
+            },
+            {
+              "id": "id-6",
+              "name": "suggested_action",
+              "value": "Contact vendor within 48 hours to discuss pricing",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "09318a71-1b24-4389-a386-a223b76d33c3",
+      "name": "Mock API Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        592,
+        96
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Daily Trigger": {
+      "main": [
+        [
+          {
+            "node": "Analyze Vendor Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Vendor Data": {
+      "main": [
+        [
+          {
+            "node": "Slack Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Test Trigger": {
+      "main": [
+        [
+          {
+            "node": "Mock Vendor Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mock Vendor Data": {
+      "main": [
+        [
+          {
+            "node": "Mock API Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mock API Response": {
+      "main": [
+        [
+          {
+            "node": "Slack Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "55a0a68f-9a02-4005-8e6a-c33c11004e84",
+  "meta": {
+    "instanceId": "03b0dd4ab296928091589e46176b6c3348d387f59d10ea881849980cafc3e8c9"
+  },
+  "id": "UJHoSjeGbC8UkK9h",
+  "tags": []
+}

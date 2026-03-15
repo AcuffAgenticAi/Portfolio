@@ -1,0 +1,814 @@
+{
+  "name": "Autonomous Procurement Negotiation Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 6
+            }
+          ]
+        }
+      },
+      "id": "8980c565-3281-4522-9793-5b082ab9b776",
+      "name": "Weekly Procurement Analysis",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        256,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "url": "<__PLACEHOLDER_VALUE__erp_vendor_api_endpoint__>",
+        "options": {}
+      },
+      "id": "1b37dfa1-965b-4d1c-8047-1b6bff6cd7d9",
+      "name": "Fetch Vendor Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "url": "<__PLACEHOLDER_VALUE__erp_contracts_api_endpoint__>",
+        "options": {}
+      },
+      "id": "66201625-57ac-4edb-b076-d16b35944188",
+      "name": "Fetch Contract Terms",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "url": "<__PLACEHOLDER_VALUE__erp_invoices_api_endpoint__>",
+        "options": {}
+      },
+      "id": "f0ee7f79-ed84-4c21-918f-0f525d17fd7a",
+      "name": "Fetch Invoice History",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        784
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "numberInputs": 3,
+        "options": {}
+      },
+      "id": "70aee7ba-01cf-4590-94a2-400e5db21e43",
+      "name": "Combine Procurement Data",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        704,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "url": "<__PLACEHOLDER_VALUE__market_pricing_api_endpoint__>",
+        "options": {}
+      },
+      "id": "34276525-5aba-4b32-8487-ccf3e1fe90de",
+      "name": "Fetch Market Benchmarks",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        928,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "vendorData",
+              "value": "={{ $('Fetch Vendor Data').item.json }}",
+              "type": "object"
+            },
+            {
+              "id": "id-2",
+              "name": "contractData",
+              "value": "={{ $('Fetch Contract Terms').item.json }}",
+              "type": "object"
+            },
+            {
+              "id": "id-3",
+              "name": "invoiceData",
+              "value": "={{ $('Fetch Invoice History').item.json }}",
+              "type": "object"
+            },
+            {
+              "id": "id-4",
+              "name": "marketBenchmarks",
+              "value": "={{ $json }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "db9da697-0e6b-4aea-ac5c-21d45138a995",
+      "name": "Prepare Analysis Dataset",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1152,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// AI-Powered Procurement Cost Analysis Engine\n// Analyzes vendor pricing, contract terms, and market benchmarks\n// to identify negotiation opportunities\n\nconst items = $input.all();\n\n// Extract procurement data from combined inputs\nconst vendorData = items[0]?.json || {};\nconst contractTerms = items[1]?.json || {};\nconst invoiceHistory = items[2]?.json || {};\nconst marketBenchmarks = items[3]?.json || {};\n\n// Initialize analysis results\nconst analysisResults = {\n  timestamp: new Date().toISOString(),\n  totalVendors: 0,\n  negotiationOpportunities: [],\n  costSavingsPotential: 0,\n  riskFactors: [],\n  recommendations: []\n};\n\n// Analyze pricing trends and identify outliers\nfunction analyzePricingTrends(vendor, market) {\n  const priceDifference = ((vendor.averagePrice - market.averagePrice) / market.averagePrice) * 100;\n  const volumeDiscount = vendor.totalVolume > market.highVolumeThreshold ? 15 : 0;\n  \n  return {\n    priceDifferencePercent: priceDifference,\n    isAboveMarket: priceDifference > 5,\n    potentialSavings: priceDifference > 0 ? (vendor.totalSpend * priceDifference / 100) : 0,\n    volumeDiscountEligible: volumeDiscount > 0,\n    negotiationScore: Math.min(100, priceDifference + volumeDiscount)\n  };\n}\n\n// Evaluate contract renewal opportunities\nfunction evaluateContractRenewal(contract) {\n  const daysUntilExpiry = Math.floor((new Date(contract.expiryDate) - new Date()) / (1000 * 60 * 60 * 24));\n  const isNearRenewal = daysUntilExpiry <= 90 && daysUntilExpiry > 0;\n  \n  return {\n    daysUntilExpiry,\n    isNearRenewal,\n    renewalPriority: daysUntilExpiry <= 30 ? 'HIGH' : daysUntilExpiry <= 90 ? 'MEDIUM' : 'LOW',\n    leverageOpportunity: isNearRenewal\n  };\n}\n\n// Calculate payment term optimization\nfunction analyzePaymentTerms(invoice, contract) {\n  const currentTerms = contract.paymentTermsDays || 30;\n  const industryStandard = 45;\n  const earlyPaymentDiscount = invoice.earlyPaymentDiscountPercent || 0;\n  \n  return {\n    currentTerms,\n    industryStandard,\n    termExtensionPotential: industryStandard - currentTerms,\n    earlyPaymentDiscount,\n    cashFlowImpact: (invoice.averageInvoiceAmount * (industryStandard - currentTerms)) / 365\n  };\n}\n\n// Main analysis logic\nif (vendorData.vendors && Array.isArray(vendorData.vendors)) {\n  analysisResults.totalVendors = vendorData.vendors.length;\n  \n  vendorData.vendors.forEach(vendor => {\n    // Pricing analysis\n    const pricingAnalysis = analyzePricingTrends(\n      vendor,\n      marketBenchmarks[vendor.category] || {}\n    );\n    \n    // Contract analysis\n    const vendorContract = contractTerms.contracts?.find(c => c.vendorId === vendor.id) || {};\n    const contractAnalysis = evaluateContractRenewal(vendorContract);\n    \n    // Payment terms analysis\n    const vendorInvoices = invoiceHistory.invoices?.filter(i => i.vendorId === vendor.id) || [];\n    const avgInvoice = vendorInvoices.reduce((sum, inv) => sum + (inv.amount || 0), 0) / (vendorInvoices.length || 1);\n    const paymentAnalysis = analyzePaymentTerms(\n      { averageInvoiceAmount: avgInvoice, earlyPaymentDiscountPercent: vendorContract.earlyPayDiscount },\n      vendorContract\n    );\n    \n    // Identify negotiation opportunities\n    if (pricingAnalysis.negotiationScore > 20 || contractAnalysis.isNearRenewal) {\n      const opportunity = {\n        vendorId: vendor.id,\n        vendorName: vendor.name,\n        category: vendor.category,\n        currentSpend: vendor.totalSpend,\n        negotiationScore: pricingAnalysis.negotiationScore,\n        opportunities: [],\n        estimatedSavings: 0\n      };\n      \n      // Price negotiation opportunity\n      if (pricingAnalysis.isAboveMarket) {\n        opportunity.opportunities.push({\n          type: 'PRICE_REDUCTION',\n          description: `Pricing ${pricingAnalysis.priceDifferencePercent.toFixed(1)}% above market average`,\n          potentialSavings: pricingAnalysis.potentialSavings,\n          priority: pricingAnalysis.priceDifferencePercent > 15 ? 'HIGH' : 'MEDIUM'\n        });\n        opportunity.estimatedSavings += pricingAnalysis.potentialSavings;\n      }\n      \n      // Volume discount opportunity\n      if (pricingAnalysis.volumeDiscountEligible) {\n        const volumeSavings = vendor.totalSpend * 0.10;\n        opportunity.opportunities.push({\n          type: 'VOLUME_DISCOUNT',\n          description: 'Eligible for volume-based pricing tier',\n          potentialSavings: volumeSavings,\n          priority: 'MEDIUM'\n        });\n        opportunity.estimatedSavings += volumeSavings;\n      }\n      \n      // Contract renewal leverage\n      if (contractAnalysis.isNearRenewal) {\n        opportunity.opportunities.push({\n          type: 'CONTRACT_RENEWAL',\n          description: `Contract expires in ${contractAnalysis.daysUntilExpiry} days - negotiation window open`,\n          potentialSavings: vendor.totalSpend * 0.08,\n          priority: contractAnalysis.renewalPriority\n        });\n        opportunity.estimatedSavings += vendor.totalSpend * 0.08;\n      }\n      \n      // Payment terms optimization\n      if (paymentAnalysis.termExtensionPotential > 0) {\n        opportunity.opportunities.push({\n          type: 'PAYMENT_TERMS',\n          description: `Extend payment terms from ${paymentAnalysis.currentTerms} to ${paymentAnalysis.industryStandard} days`,\n          cashFlowBenefit: paymentAnalysis.cashFlowImpact,\n          priority: 'LOW'\n        });\n      }\n      \n      analysisResults.negotiationOpportunities.push(opportunity);\n      analysisResults.costSavingsPotential += opportunity.estimatedSavings;\n    }\n  });\n}\n\n// Generate AI-powered recommendations\nanalysisResults.recommendations = [\n  {\n    action: 'PRIORITIZE_HIGH_IMPACT',\n    description: 'Focus on top 3 vendors with highest savings potential',\n    targetVendors: analysisResults.negotiationOpportunities\n      .sort((a, b) => b.estimatedSavings - a.estimatedSavings)\n      .slice(0, 3)\n      .map(v => v.vendorName)\n  },\n  {\n    action: 'LEVERAGE_RENEWAL_TIMING',\n    description: 'Initiate negotiations 60-90 days before contract expiry',\n    affectedContracts: analysisResults.negotiationOpportunities\n      .filter(o => o.opportunities.some(opp => opp.type === 'CONTRACT_RENEWAL'))\n      .length\n  },\n  {\n    action: 'BENCHMARK_COMPETITIVE_BIDS',\n    description: 'Request competitive quotes for vendors pricing >10% above market',\n    targetCategories: [...new Set(analysisResults.negotiationOpportunities\n      .filter(o => o.opportunities.some(opp => opp.type === 'PRICE_REDUCTION'))\n      .map(o => o.category))]\n  }\n];\n\n// Risk assessment\nif (analysisResults.negotiationOpportunities.length === 0) {\n  analysisResults.riskFactors.push({\n    type: 'NO_OPPORTUNITIES',\n    severity: 'LOW',\n    description: 'No immediate negotiation opportunities identified - pricing appears competitive'\n  });\n}\n\nif (analysisResults.costSavingsPotential > 100000) {\n  analysisResults.riskFactors.push({\n    type: 'HIGH_SAVINGS_POTENTIAL',\n    severity: 'MEDIUM',\n    description: 'Significant savings identified - prioritize vendor negotiations this quarter'\n  });\n}\n\n// Return opportunities array with proper structure for downstream processing\nconst outputOpportunities = analysisResults.negotiationOpportunities.map(opp => {\n  const marketBenchmark = marketBenchmarks[opp.category] || {};\n  const currentPrice = vendorData.vendors?.find(v => v.id === opp.vendorId)?.averagePrice || 0;\n  const marketPrice = marketBenchmark.averagePrice || 0;\n  const priceVariance = marketPrice > 0 ? ((currentPrice - marketPrice) / marketPrice * 100).toFixed(2) : 0;\n  \n  // Generate recommendation based on opportunities\n  let recommendation = '';\n  const highPriorityOpps = opp.opportunities.filter(o => o.priority === 'HIGH' || o.priority === 'CRITICAL');\n  if (highPriorityOpps.length > 0) {\n    recommendation = highPriorityOpps.map(o => o.description).join('; ');\n  } else if (opp.opportunities.length > 0) {\n    recommendation = opp.opportunities[0].description;\n  } else {\n    recommendation = 'Review vendor pricing and contract terms';\n  }\n  \n  return {\n    vendorName: opp.vendorName,\n    savingsPotential: opp.estimatedSavings,\n    currentPrice: currentPrice,\n    marketPrice: marketPrice,\n    priceVariance: priceVariance,\n    recommendation: recommendation,\n    category: opp.category,\n    negotiationScore: opp.negotiationScore,\n    opportunities: opp.opportunities\n  };\n});\n\nreturn outputOpportunities.map(opp => ({ json: opp }));"
+      },
+      "id": "9bd8f63a-b304-4ee3-a9c8-b28fc6db9569",
+      "name": "AI Cost Analysis Engine",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1376,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "opportunities",
+        "options": {}
+      },
+      "id": "c6c312b3-39c7-4792-831b-380804eaa837",
+      "name": "Split Opportunities",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1600,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": ""
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.savingsPotential }}",
+                    "rightValue": 100000,
+                    "operator": {
+                      "type": "number",
+                      "operation": "gt"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": ""
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.savingsPotential }}",
+                    "rightValue": 50000,
+                    "operator": {
+                      "type": "number",
+                      "operation": "gt"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": ""
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.savingsPotential }}",
+                    "rightValue": 10000,
+                    "operator": {
+                      "type": "number",
+                      "operation": "gt"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "06dfa31a-0bbf-4495-90ed-32a718c56c3b",
+      "name": "Route by Priority",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1824,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "priority",
+              "value": "CRITICAL",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "subject",
+              "value": "=🚨 CRITICAL: Procurement Opportunity - {{ $json.vendorName }}",
+              "type": "string"
+            },
+            {
+              "id": "id-3",
+              "name": "message",
+              "value": "=Vendor: {{ $json.vendorName }}\nEstimated Savings: ${{ $json.savingsPotential.toLocaleString() }}\nCurrent Price: ${{ $json.currentPrice }}\nMarket Benchmark: ${{ $json.marketPrice }}\nPrice Variance: {{ $json.priceVariance }}%\n\nRecommendation: {{ $json.recommendation }}\n\nAction Required: Immediate negotiation recommended",
+              "type": "string"
+            },
+            {
+              "id": "id-4",
+              "name": "alertType",
+              "value": "critical",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "d8d6983d-ba6a-4387-8e8e-8d6901a26e34",
+      "name": "Format Critical Alert",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2048,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "priority",
+              "value": "HIGH",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "subject",
+              "value": "=⚠️ High Priority: Procurement Opportunity - {{ $json.vendorName }}",
+              "type": "string"
+            },
+            {
+              "id": "id-3",
+              "name": "message",
+              "value": "=Vendor: {{ $json.vendorName }}\nEstimated Savings: ${{ $json.savingsPotential.toLocaleString() }}\nCurrent Price: ${{ $json.currentPrice }}\nMarket Benchmark: ${{ $json.marketPrice }}\nPrice Variance: {{ $json.priceVariance }}%\n\nRecommendation: {{ $json.recommendation }}",
+              "type": "string"
+            },
+            {
+              "id": "id-4",
+              "name": "alertType",
+              "value": "high",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "29af18b6-2230-4ca9-81dc-cf3494a8198a",
+      "name": "Format High Priority Alert",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2048,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "priority",
+              "value": "MEDIUM",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "subject",
+              "value": "=📊 Medium Priority: Procurement Opportunity - {{ $json.vendorName }}",
+              "type": "string"
+            },
+            {
+              "id": "id-3",
+              "name": "message",
+              "value": "=Vendor: {{ $json.vendorName }}\nEstimated Savings: ${{ $json.savingsPotential.toLocaleString() }}\nCurrent Price: ${{ $json.currentPrice }}\nMarket Benchmark: ${{ $json.marketPrice }}\nPrice Variance: {{ $json.priceVariance }}%\n\nRecommendation: {{ $json.recommendation }}",
+              "type": "string"
+            },
+            {
+              "id": "id-4",
+              "name": "alertType",
+              "value": "medium",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "5c976851-9da8-476c-81bf-2ca609eb8b8c",
+      "name": "Format Medium Priority Alert",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2048,
+        688
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "priority",
+              "value": "LOW",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "subject",
+              "value": "=ℹ️ Low Priority: Procurement Opportunity - {{ $json.vendorName }}",
+              "type": "string"
+            },
+            {
+              "id": "id-3",
+              "name": "message",
+              "value": "=Vendor: {{ $json.vendorName }}\nEstimated Savings: ${{ $json.savingsPotential.toLocaleString() }}\nCurrent Price: ${{ $json.currentPrice }}\nMarket Benchmark: ${{ $json.marketPrice }}\nPrice Variance: {{ $json.priceVariance }}%\n\nRecommendation: {{ $json.recommendation }}",
+              "type": "string"
+            },
+            {
+              "id": "id-4",
+              "name": "alertType",
+              "value": "low",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "8258c232-3b5f-494d-bc7b-b16c7a32ff62",
+      "name": "Format Low Priority Alert",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2048,
+        880
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "<__PLACEHOLDER_VALUE__notification_webhook_or_api__>",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "priority",
+              "value": "={{ $json.priority }}"
+            },
+            {
+              "name": "subject",
+              "value": "={{ $json.subject }}"
+            },
+            {
+              "name": "message",
+              "value": "={{ $json.message }}"
+            },
+            {
+              "name": "vendorName",
+              "value": "={{ $json.vendorName }}"
+            },
+            {
+              "name": "savingsPotential",
+              "value": "={{ $json.savingsPotential }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "bd3b309d-8741-4eb5-be0b-73d7ec46d66f",
+      "name": "Send to Procurement Team",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2272,
+        688
+      ]
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "id": "720eead3-a990-4da9-b1a9-95610bd0edb8",
+      "name": "Aggregate All Alerts",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        2496,
+        688
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "reportDate",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "totalOpportunities",
+              "value": "={{ $json.length }}",
+              "type": "number"
+            },
+            {
+              "id": "id-3",
+              "name": "totalSavingsPotential",
+              "value": "={{ $json.reduce((sum, item) => sum + item.savingsPotential, 0) }}",
+              "type": "number"
+            },
+            {
+              "id": "id-4",
+              "name": "criticalCount",
+              "value": "={{ $json.filter(item => item.priority === 'CRITICAL').length }}",
+              "type": "number"
+            },
+            {
+              "id": "id-5",
+              "name": "highCount",
+              "value": "={{ $json.filter(item => item.priority === 'HIGH').length }}",
+              "type": "number"
+            },
+            {
+              "id": "id-6",
+              "name": "mediumCount",
+              "value": "={{ $json.filter(item => item.priority === 'MEDIUM').length }}",
+              "type": "number"
+            },
+            {
+              "id": "id-7",
+              "name": "lowCount",
+              "value": "={{ $json.filter(item => item.priority === 'LOW').length }}",
+              "type": "number"
+            },
+            {
+              "id": "id-8",
+              "name": "opportunities",
+              "value": "={{ JSON.stringify($json) }}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "170c7955-1a2e-4851-b444-6ada9dfdbc7c",
+      "name": "Generate Summary Report",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2720,
+        688
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "<__PLACEHOLDER_VALUE__database_or_storage_api__>",
+        "options": {}
+      },
+      "id": "a37bf5c2-1f31-4b70-a377-e06960ebe8fc",
+      "name": "Store Analysis Results",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2944,
+        688
+      ]
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1840,
+        624
+      ],
+      "typeVersion": 1,
+      "id": "01b6d81f-fe58-403d-9cf4-b16326963d53",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1840,
+        624
+      ],
+      "typeVersion": 1,
+      "id": "862ec38c-27dd-43ae-bf6d-de9699456f70",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1840,
+        624
+      ],
+      "typeVersion": 1,
+      "id": "ac8f55b0-b460-4291-ab00-377c4aa8028e",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1840,
+        624
+      ],
+      "typeVersion": 1,
+      "id": "2f66a804-cb60-47ac-b2c0-41529d586c3c",
+      "name": "Sticky Note3"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Fetch Invoice History": {
+      "main": [
+        [
+          {
+            "node": "Combine Procurement Data",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Weekly Procurement Analysis": {
+      "main": [
+        [
+          {
+            "node": "Fetch Vendor Data",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Contract Terms",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Invoice History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Vendor Data": {
+      "main": [
+        [
+          {
+            "node": "Combine Procurement Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Contract Terms": {
+      "main": [
+        [
+          {
+            "node": "Combine Procurement Data",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Combine Procurement Data": {
+      "main": [
+        [
+          {
+            "node": "Fetch Market Benchmarks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Market Benchmarks": {
+      "main": [
+        [
+          {
+            "node": "Prepare Analysis Dataset",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Analysis Dataset": {
+      "main": [
+        [
+          {
+            "node": "AI Cost Analysis Engine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Cost Analysis Engine": {
+      "main": [
+        [
+          {
+            "node": "Split Opportunities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Opportunities": {
+      "main": [
+        [
+          {
+            "node": "Route by Priority",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Priority": {
+      "main": [
+        [
+          {
+            "node": "Format Critical Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format High Priority Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Medium Priority Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Critical Alert": {
+      "main": [
+        [
+          {
+            "node": "Send to Procurement Team",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format High Priority Alert": {
+      "main": [
+        [
+          {
+            "node": "Send to Procurement Team",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Medium Priority Alert": {
+      "main": [
+        [
+          {
+            "node": "Send to Procurement Team",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Low Priority Alert": {
+      "main": [
+        [
+          {
+            "node": "Send to Procurement Team",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send to Procurement Team": {
+      "main": [
+        [
+          {
+            "node": "Aggregate All Alerts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate All Alerts": {
+      "main": [
+        [
+          {
+            "node": "Generate Summary Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Summary Report": {
+      "main": [
+        [
+          {
+            "node": "Store Analysis Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "f8997c26-cacc-480f-a94f-0b763ccaceb8",
+  "meta": {
+    "instanceId": "03b0dd4ab296928091589e46176b6c3348d387f59d10ea881849980cafc3e8c9"
+  },
+  "id": "h6Sa70atzkXYP1hI",
+  "tags": []
+}

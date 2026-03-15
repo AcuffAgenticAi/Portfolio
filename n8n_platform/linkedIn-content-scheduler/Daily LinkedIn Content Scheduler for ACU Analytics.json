@@ -1,0 +1,452 @@
+{
+  "name": "Daily LinkedIn Content Scheduler for ACU Analytics",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "499139b8-dc7b-4cf8-8573-4295cc5516ce",
+      "name": "Daily at 9 AM CST",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -896,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "posts",
+              "value": "[{\"type\": \"humorous\"}, {\"type\": \"educational\"}, {\"type\": \"cartoon\"}]",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5178c612-49a4-4cf0-b270-eb53319948ae",
+      "name": "Create Post Types",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -672,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "posts",
+        "options": {}
+      },
+      "id": "6404a59f-2558-4d3e-aa3e-d68e083fbccb",
+      "name": "Split Post Types",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -448,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": ""
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.type }}",
+                    "rightValue": "humorous",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": ""
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.type }}",
+                    "rightValue": "educational",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": ""
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.type }}",
+                    "rightValue": "cartoon",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "56d88a0b-f741-4569-9ec8-059fffe73371",
+      "name": "Route by Post Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -224,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "Generate a humorous LinkedIn post for today",
+        "options": {
+          "systemMessage": "You are a creative LinkedIn content creator specializing in humor for ACU Analytics. Write engaging, witty posts that are professional yet entertaining. Keep posts under 300 characters, include relevant hashtags, and make them shareable. Focus on data analytics, business intelligence, and workplace humor themes."
+        }
+      },
+      "id": "0408dd1d-959c-4de0-906f-c6102fdd8426",
+      "name": "Generate Humorous Post",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "Generate an educational LinkedIn post for today",
+        "options": {
+          "systemMessage": "You are an expert LinkedIn content creator focused on educational content for ACU Analytics. Write informative posts about data analytics, business intelligence, and industry trends. Keep posts under 500 characters, use bullet points where appropriate, include 3-5 relevant hashtags, and end with a thought-provoking question to drive engagement."
+        }
+      },
+      "id": "fc90062c-231e-4a6f-8f2e-b48c48058864",
+      "name": "Generate Educational Post",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        0,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "prompt",
+              "value": "Create a professional, business-appropriate cartoon illustration suitable for LinkedIn. The cartoon should depict a humorous workplace scene related to data analytics or business intelligence. Style: clean, modern, vector-like illustration with bright colors. Include a witty caption at the bottom. Make it shareable and relatable to business professionals.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "000d5009-8d31-47a6-808f-a586053b1e5a",
+      "name": "Prepare Cartoon Prompt",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        64,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "prompt": "={{ $json.prompt }}",
+        "options": {}
+      },
+      "id": "83f04d30-cdb2-41ca-9c95-b04f2ecf7168",
+      "name": "Generate Cartoon Image",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        352,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "person": "=Christian Acuff",
+        "text": "={{ $json.output }}",
+        "additionalFields": {}
+      },
+      "id": "555a4dee-42c7-46fc-a197-bba881a4ea49",
+      "name": "Post Humorous to LinkedIn",
+      "type": "n8n-nodes-base.linkedIn",
+      "typeVersion": 1,
+      "position": [
+        384,
+        16
+      ],
+      "retryOnFail": false,
+      "credentials": {
+        "linkedInOAuth2Api": {
+          "id": "edCTB3FWMoKwOusN",
+          "name": "LinkedIn account 2"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "person": "=Christian Acuff",
+        "text": "={{ $json.output }}",
+        "additionalFields": {}
+      },
+      "id": "efd54359-acb7-42d4-a3be-0769281bfdb5",
+      "name": "Post Educational to LinkedIn",
+      "type": "n8n-nodes-base.linkedIn",
+      "typeVersion": 1,
+      "position": [
+        400,
+        688
+      ],
+      "credentials": {
+        "linkedInOAuth2Api": {
+          "id": "edCTB3FWMoKwOusN",
+          "name": "LinkedIn account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "person": "=Christian Acuff",
+        "text": "Check out this workplace cartoon! 🎨 #ProfessionalDevelopment #WorkplaceHumor #DataAnalytics #ACUAnalytics",
+        "additionalFields": {}
+      },
+      "id": "2d86584a-4998-40cb-9840-bf847d2f0767",
+      "name": "Post Cartoon to LinkedIn",
+      "type": "n8n-nodes-base.linkedIn",
+      "typeVersion": 1,
+      "position": [
+        576,
+        400
+      ],
+      "alwaysOutputData": false,
+      "credentials": {
+        "linkedInOAuth2Api": {
+          "id": "edCTB3FWMoKwOusN",
+          "name": "LinkedIn account 2"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "8bd2e328-c2f2-424b-b8ff-4a8c68a5ab05",
+      "name": "Ollama Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        0,
+        704
+      ],
+      "retryOnFail": true,
+      "credentials": {
+        "ollamaApi": {
+          "id": "thpSQXCvXuLFvVjR",
+          "name": "Ollama account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "56da5af9-021a-4bc3-b9e1-d7f4c2f6650c",
+      "name": "Ollama Chat Model1",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        0,
+        912
+      ],
+      "credentials": {
+        "ollamaApi": {
+          "id": "Vs31PO9lXoXF3jA8",
+          "name": "Ollama account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Daily at 9 AM CST": {
+      "main": [
+        [
+          {
+            "node": "Create Post Types",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Post Types": {
+      "main": [
+        [
+          {
+            "node": "Split Post Types",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Post Types": {
+      "main": [
+        [
+          {
+            "node": "Route by Post Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Post Type": {
+      "main": [
+        [
+          {
+            "node": "Generate Humorous Post",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Generate Educational Post",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Cartoon Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Humorous Post": {
+      "main": [
+        [
+          {
+            "node": "Post Humorous to LinkedIn",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Educational Post": {
+      "main": [
+        [
+          {
+            "node": "Post Educational to LinkedIn",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Cartoon Prompt": {
+      "main": [
+        [
+          {
+            "node": "Generate Cartoon Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Cartoon Image": {
+      "main": [
+        [
+          {
+            "node": "Post Cartoon to LinkedIn",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Generate Humorous Post",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Generate Educational Post",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "e9723e44-92ec-4c5d-8062-f2ec515b7d0f",
+  "meta": {
+    "instanceId": "03b0dd4ab296928091589e46176b6c3348d387f59d10ea881849980cafc3e8c9"
+  },
+  "id": "uSh4Fd2t5siFd19M",
+  "tags": []
+}

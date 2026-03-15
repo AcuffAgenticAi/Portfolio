@@ -1,0 +1,685 @@
+{
+  "name": "Enterprise Autonomous Agent Infrastructure Setup",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours"
+            }
+          ]
+        }
+      },
+      "id": "83b90d09-2d4c-4472-8f2b-2cc1cad286e2",
+      "name": "Revenue Monitor Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        256,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "opportunity",
+        "operation": "getAll",
+        "limit": 100,
+        "options": {}
+      },
+      "id": "0e464323-da64-4beb-8b64-9b12f01a3ebd",
+      "name": "Fetch Salesforce Pipeline",
+      "type": "n8n-nodes-base.salesforce",
+      "typeVersion": 1,
+      "position": [
+        480,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "deal",
+        "operation": "getAll",
+        "filters": {}
+      },
+      "id": "e45021bf-5041-4ddf-b7b0-9db4cb638aaf",
+      "name": "Fetch HubSpot Campaigns",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "charge",
+        "operation": "getAll",
+        "limit": 100
+      },
+      "id": "5134f34d-7334-480b-83b4-8a775bd27ee8",
+      "name": "Fetch Stripe Billing Data",
+      "type": "n8n-nodes-base.stripe",
+      "typeVersion": 1,
+      "position": [
+        480,
+        688
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT account_id, total_revenue, churn_risk_score, lifetime_value, last_activity_date FROM revenue_analytics WHERE last_updated >= DATEADD(day, -7, CURRENT_DATE()) LIMIT 100"
+      },
+      "id": "2cb030db-7281-49be-af58-81393785d6ce",
+      "name": "Fetch Snowflake Analytics",
+      "type": "n8n-nodes-base.snowflake",
+      "typeVersion": 1,
+      "position": [
+        480,
+        880
+      ]
+    },
+    {
+      "parameters": {
+        "numberInputs": 4
+      },
+      "id": "26e7234f-1dd2-48a8-9183-d21a748fc6c8",
+      "name": "Merge Revenue Data",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        704,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "data_source",
+              "value": "={{ $json.source || 'unknown' }}",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "account_id",
+              "value": "={{ $json.AccountId || $json.dealId || $json.customer || $json.account_id }}",
+              "type": "string"
+            },
+            {
+              "id": "id-3",
+              "name": "revenue_amount",
+              "value": "={{ $json.Amount || $json.amount || $json.total_revenue || 0 }}",
+              "type": "number"
+            },
+            {
+              "id": "id-4",
+              "name": "deal_stage",
+              "value": "={{ $json.StageName || $json.dealstage || 'unknown' }}",
+              "type": "string"
+            },
+            {
+              "id": "id-5",
+              "name": "close_date",
+              "value": "={{ $json.CloseDate || $json.closedate || $json.last_activity_date }}",
+              "type": "string"
+            },
+            {
+              "id": "id-6",
+              "name": "risk_score",
+              "value": "={{ $json.churn_risk_score || 0 }}",
+              "type": "number"
+            },
+            {
+              "id": "id-7",
+              "name": "days_in_stage",
+              "value": "={{ Math.floor((new Date() - new Date($json.LastModifiedDate || $json.hs_lastmodifieddate || Date.now())) / (1000 * 60 * 60 * 24)) }}",
+              "type": "number"
+            },
+            {
+              "id": "id-8",
+              "name": "revenue_velocity",
+              "value": "={{ ($json.Amount || 0) / Math.max(1, Math.floor((new Date($json.CloseDate || Date.now()) - new Date($json.CreatedDate || Date.now())) / (1000 * 60 * 60 * 24))) }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4c570d46-bd36-47ab-9080-7672c63b7bde",
+      "name": "Engineer Features",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        928,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are an expert Revenue Intelligence Analyst specializing in detecting revenue opportunities, risks, and leakage patterns. Analyze the provided CRM, marketing, and financial data to identify:\n\n1. REVENUE LEAKAGE: Deals stuck in pipeline, stalled opportunities, at-risk renewals, pricing inconsistencies\n2. HIGH-PROBABILITY DEALS: Opportunities with strong engagement signals, fast velocity, ideal customer profile match\n3. PIPELINE RISKS: Deals with red flags like long sales cycles, low engagement, competitive threats, budget concerns\n\nFor each insight, provide:\n- Severity/Priority (Critical, High, Medium, Low)\n- Affected accounts/deals with IDs\n- Specific risk factors or opportunity signals\n- Recommended actions\n- Estimated revenue impact\n\nBe specific, data-driven, and actionable."
+        }
+      },
+      "id": "f2389109-0ac0-4a04-bd6b-9f6c48246ff2",
+      "name": "Revenue Intelligence AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1216,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "id",
+          "value": "gpt-4o"
+        },
+        "builtInTools": {},
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "id": "953e9df6-b8e7-41c6-b655-10e06127deca",
+      "name": "OpenAI GPT-4",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1152,
+        816
+      ]
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"revenue_leak_detected\": {\n      \"type\": \"boolean\",\n      \"description\": \"True if revenue leakage patterns are detected\"\n    },\n    \"high_probability_deal\": {\n      \"type\": \"boolean\",\n      \"description\": \"True if high-probability opportunities are identified\"\n    },\n    \"pipeline_risk\": {\n      \"type\": \"boolean\",\n      \"description\": \"True if pipeline risks are detected\"\n    },\n    \"insights\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"category\": {\n            \"type\": \"string\",\n            \"enum\": [\"revenue_leak\", \"high_probability\", \"pipeline_risk\"]\n          },\n          \"severity\": {\n            \"type\": \"string\",\n            \"enum\": [\"critical\", \"high\", \"medium\", \"low\"]\n          },\n          \"account_ids\": {\n            \"type\": \"array\",\n            \"items\": {\"type\": \"string\"}\n          },\n          \"description\": {\"type\": \"string\"},\n          \"recommended_action\": {\"type\": \"string\"},\n          \"estimated_revenue_impact\": {\"type\": \"number\"}\n        }\n      }\n    },\n    \"summary\": {\n      \"type\": \"string\",\n      \"description\": \"Executive summary of findings\"\n    }\n  },\n  \"required\": [\"revenue_leak_detected\", \"high_probability_deal\", \"pipeline_risk\", \"insights\", \"summary\"]\n}"
+      },
+      "id": "2b7a8ca4-83df-46c6-9785-09035ba8429e",
+      "name": "Structured Analysis Output",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1408,
+        816
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "b5c22815-d041-45eb-978c-dffb40d760bc",
+      "name": "Revenue Calculator",
+      "type": "@n8n/n8n-nodes-langchain.toolCalculator",
+      "typeVersion": 1,
+      "position": [
+        1280,
+        816
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.revenue_leak_detected }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.high_probability_deal }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.pipeline_risk }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c0f527b0-1a0d-44c7-bd74-88681647e741",
+      "name": "Route by Insight Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1840,
+        576
+      ]
+    },
+    {
+      "parameters": {
+        "fieldsToAggregate": {
+          "fieldToAggregate": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "id": "6c4c25b5-6786-4383-91d9-f1f23c8ec272",
+      "name": "Aggregate Insights",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        1616,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "<__PLACEHOLDER_VALUE__sales_alerts_channel__>"
+        },
+        "text": "=:warning: *Revenue Leakage Detected*\n\n{{ $json.output.summary }}\n\n*Critical Insights:*\n{{ $json.output.insights.filter(i => i.category === 'revenue_leak' && i.severity === 'critical').map(i => `• ${i.description}\\n  Action: ${i.recommended_action}\\n  Impact: $${i.estimated_revenue_impact.toLocaleString()}`).join('\\n\\n') }}\n\n*Affected Accounts:* {{ $json.output.insights.flatMap(i => i.account_ids).join(', ') }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "id": "8b697b72-2406-4a0e-9533-e3034c325ecc",
+      "name": "Alert Sales Team - Revenue Leak",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [
+        2064,
+        304
+      ],
+      "webhookId": "e15f1b2f-ff6c-4cb1-9ec2-6f0d66a084b1"
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "<__PLACEHOLDER_VALUE__sales_opportunities_channel__>"
+        },
+        "text": "=:rocket: *High-Priority Deal Opportunity*\n\n{{ $json.output.summary }}\n\n*Top Opportunities:*\n{{ $json.output.insights.filter(i => i.category === 'high_probability' && (i.severity === 'critical' || i.severity === 'high')).map(i => `• ${i.description}\\n  Action: ${i.recommended_action}\\n  Potential Revenue: $${i.estimated_revenue_impact.toLocaleString()}`).join('\\n\\n') }}\n\n*Accounts to Prioritize:* {{ $json.output.insights.flatMap(i => i.account_ids).join(', ') }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "id": "a4f87630-3cd3-42e6-b824-5eb230dab2e2",
+      "name": "Alert Sales Team - High Priority Deal",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [
+        2064,
+        496
+      ],
+      "webhookId": "11c1e1fc-0310-420c-8072-736afb327a6e"
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "<__PLACEHOLDER_VALUE__executive_alerts_channel__>"
+        },
+        "text": "=:rotating_light: *Pipeline Risk Alert - Executive Action Required*\n\n{{ $json.output.summary }}\n\n*Critical Risks:*\n{{ $json.output.insights.filter(i => i.category === 'pipeline_risk' && i.severity === 'critical').map(i => `• ${i.description}\\n  Recommended Action: ${i.recommended_action}\\n  Revenue at Risk: $${i.estimated_revenue_impact.toLocaleString()}`).join('\\n\\n') }}\n\n*Total Revenue at Risk:* ${{ $json.output.insights.filter(i => i.category === 'pipeline_risk').reduce((sum, i) => sum + i.estimated_revenue_impact, 0).toLocaleString() }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "id": "5361ea46-a7b2-4812-a9c6-2fe6b9ee9c07",
+      "name": "Alert Executives - Pipeline Risk",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [
+        2064,
+        688
+      ],
+      "webhookId": "3656a952-dc43-4f38-ae0b-de0ee4c79fa4"
+    },
+    {
+      "parameters": {
+        "sendTo": "<__PLACEHOLDER_VALUE__executive_email__>",
+        "subject": "=Revenue Intelligence Report - {{ new Date().toLocaleDateString() }}",
+        "message": "=<html>\n<body style=\"font-family: Arial, sans-serif;\">\n<h2>Revenue Intelligence Daily Report</h2>\n<p><strong>Generated:</strong> {{ new Date().toLocaleString() }}</p>\n\n<h3>Executive Summary</h3>\n<p>{{ $json.output.summary }}</p>\n\n<h3>Key Metrics</h3>\n<ul>\n<li><strong>Revenue Leaks Detected:</strong> {{ $json.output.insights.filter(i => i.category === 'revenue_leak').length }}</li>\n<li><strong>High-Priority Opportunities:</strong> {{ $json.output.insights.filter(i => i.category === 'high_probability').length }}</li>\n<li><strong>Pipeline Risks:</strong> {{ $json.output.insights.filter(i => i.category === 'pipeline_risk').length }}</li>\n<li><strong>Total Revenue Impact:</strong> ${{ $json.output.insights.reduce((sum, i) => sum + Math.abs(i.estimated_revenue_impact), 0).toLocaleString() }}</li>\n</ul>\n\n<h3>Critical Actions Required</h3>\n{{ $json.output.insights.filter(i => i.severity === 'critical').map(i => `<div style=\"border-left: 4px solid #ff0000; padding-left: 10px; margin: 10px 0;\">\n<strong>${i.category.toUpperCase()}</strong><br/>\n${i.description}<br/>\n<em>Action: ${i.recommended_action}</em><br/>\nImpact: $${i.estimated_revenue_impact.toLocaleString()}\n</div>`).join('') }}\n\n<p><em>This is an automated report from the Revenue Intelligence Agent.</em></p>\n</body>\n</html>",
+        "options": {}
+      },
+      "id": "66738b65-edf5-4ee2-a29f-08871aebcdb2",
+      "name": "Send Executive Report",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2064,
+        880
+      ],
+      "webhookId": "bb70ac37-f07b-420e-9942-ac0bee202468",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "7XzVweBsCELuvKnd",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "opportunity",
+        "operation": "update",
+        "opportunityId": "={{ $json.insights[0].account_ids[0] }}",
+        "updateFields": {
+          "customFieldsUi": {
+            "customFieldsValues": [
+              {
+                "fieldId": "AI_Priority_Score__c",
+                "value": "={{ $json.insights[0].severity === 'critical' ? 100 : $json.insights[0].severity === 'high' ? 75 : 50 }}"
+              },
+              {
+                "fieldId": "AI_Insight__c",
+                "value": "={{ $json.insights[0].description }}"
+              },
+              {
+                "fieldId": "AI_Recommended_Action__c",
+                "value": "={{ $json.insights[0].recommended_action }}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "a775ac8e-6caf-4d11-a6d7-2fa39c79dd05",
+      "name": "Update CRM - Priority Flag",
+      "type": "n8n-nodes-base.salesforce",
+      "typeVersion": 1,
+      "position": [
+        2512,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "insights",
+        "include": "allOtherFields",
+        "options": {}
+      },
+      "id": "a52a9a0e-fd23-4bd8-b8b7-62d8df32ae89",
+      "name": "Split Insights for CRM Update",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        2288,
+        496
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Fetch Snowflake Analytics": {
+      "main": [
+        [
+          {
+            "node": "Merge Revenue Data",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Revenue Monitor Schedule": {
+      "main": [
+        [
+          {
+            "node": "Fetch Salesforce Pipeline",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch HubSpot Campaigns",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Stripe Billing Data",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Snowflake Analytics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Salesforce Pipeline": {
+      "main": [
+        [
+          {
+            "node": "Merge Revenue Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch HubSpot Campaigns": {
+      "main": [
+        [
+          {
+            "node": "Merge Revenue Data",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Fetch Stripe Billing Data": {
+      "main": [
+        [
+          {
+            "node": "Merge Revenue Data",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge Revenue Data": {
+      "main": [
+        [
+          {
+            "node": "Engineer Features",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Engineer Features": {
+      "main": [
+        [
+          {
+            "node": "Revenue Intelligence AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI GPT-4": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Revenue Intelligence AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Analysis Output": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Revenue Intelligence AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Revenue Calculator": {
+      "ai_tool": [
+        [
+          {
+            "node": "Revenue Intelligence AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Revenue Intelligence AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Insights",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Insights": {
+      "main": [
+        [
+          {
+            "node": "Route by Insight Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Insight Type": {
+      "main": [
+        [
+          {
+            "node": "Alert Sales Team - Revenue Leak",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Executive Report",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Alert Sales Team - High Priority Deal",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Executive Report",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Alert Executives - Pipeline Risk",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Executive Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert Sales Team - High Priority Deal": {
+      "main": [
+        [
+          {
+            "node": "Split Insights for CRM Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Insights for CRM Update": {
+      "main": [
+        [
+          {
+            "node": "Update CRM - Priority Flag",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "631544bb-dcf9-48dd-87c3-e63466ba6409",
+  "meta": {
+    "instanceId": "03b0dd4ab296928091589e46176b6c3348d387f59d10ea881849980cafc3e8c9"
+  },
+  "id": "YLTn8E6hZgYWKvp5",
+  "tags": []
+}

@@ -1,0 +1,6 @@
+scrape_configs:
+
+  - job_name: "pricing-service"
+
+    static_configs:
+      - targets: ["pricing-anomaly:8000"]
